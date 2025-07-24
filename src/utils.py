@@ -4,9 +4,43 @@ import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
 import random
+import pandas as pd
 
 from matplotlib.colors import hsv_to_rgb
 import matplotlib.gridspec as gridspec
+
+
+def build_dataset(base_dir):
+    subfolders = ['color', 'grayscale', 'segmented']
+    data = []
+
+    for sub in subfolders:
+        sub_path = os.path.join(base_dir, sub)
+        if not os.path.exists(sub_path):
+            continue
+        for folder in os.listdir(sub_path):
+            folder_path = os.path.join(sub_path, folder)
+            if not os.path.isdir(folder_path):
+                continue
+            species, disease = folder.split('___', 1)
+            if disease == 'healthy':
+                healthy = True
+                disease = None
+            else:
+                healthy = False
+            for file in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, file)
+                if os.path.isfile(file_path):
+                    data.append({
+                        'Format': sub,
+                        'Species': species,
+                        'Healthy': healthy,
+                        'Disease': disease,
+                        'Folder': folder_path,
+                        'FileName': file
+                    })
+
+    return pd.DataFrame(data)
 
 
 def download_plantvillage_dataset(download_path='data/plantvillage'):
