@@ -37,7 +37,8 @@ def build_dataset(base_dir):
                         'Healthy': healthy,
                         'Disease': disease,
                         'Folder': folder_path,
-                        'FileName': file
+                        'FileName': file,
+                        'File': folder_path + '/' + file
                     })
 
     return pd.DataFrame(data)
