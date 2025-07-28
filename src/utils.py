@@ -192,7 +192,7 @@ def build_color_spa_dataset(base_dir):
         'Leaf_scorch': 'Quemadura de la hoja'
     }
 
-    df = build_dataset('../data/plantvillage/plantvillage dataset')
+    df = build_dataset(base_dir)
 
     # Add Spanish species names
     df['Especie'] = df['Species'].map(species_es_map)
