@@ -8,6 +8,111 @@ import pandas as pd
 
 from matplotlib.colors import hsv_to_rgb
 import matplotlib.gridspec as gridspec
+from scipy.spatial.distance import euclidean
+from skimage.feature import hog
+from sklearn.decomposition import PCA
+from tqdm import tqdm
+import seaborn as sns
+
+
+def plt_distance_species_with_same_disease(df):
+    df_features = features(df)
+
+    distancias_por_enfermedad = {}
+
+    for enfermedad in df_features["Enfermedad"].unique():
+        sub_df = df_features[df_features["Enfermedad"] == enfermedad]
+        especies = sub_df["Especie"].unique()
+
+        centroides = {}
+        for especie in especies:
+            puntos = sub_df[sub_df["Especie"] == especie][["pca1", "pca2"]].values
+            centroides[especie] = puntos.mean(axis=0)
+
+        distancias = []
+        for i, esp1 in enumerate(especies):
+            for esp2 in especies[i+1:]:
+                d = euclidean(centroides[esp1], centroides[esp2])
+                distancias.append(d)
+
+        if distancias:
+            distancias_por_enfermedad[enfermedad] = np.mean(distancias)
+
+    for enfermedad in sorted(distancias_por_enfermedad, key=distancias_por_enfermedad.get):
+        subset = df_features[df_features["Enfermedad"] == enfermedad]
+        plt.figure(figsize=(6, 5))
+        sns.scatterplot(data=subset, x="pca1", y="pca2", hue="Especie", s=80)
+        plt.title(f"{enfermedad} (distancia media entre especies: {distancias_por_enfermedad[enfermedad]:.2f})")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.show()
+
+
+def plt_distance_healthy_species(df):
+    df_sano = df[df["Enfermedad"].str.lower() == "sano"].copy()
+
+    df_sano_valid = features(df_sano)
+
+    especies_sanas = df_sano_valid["Especie"].unique()
+    centroides = {}
+
+    for especie in especies_sanas:
+        puntos = df_sano_valid[df_sano_valid["Especie"] == especie][["pca1", "pca2"]].values
+        if len(puntos) > 0:
+            centroides[especie] = puntos.mean(axis=0)
+
+    especies_ordenadas = sorted(centroides.keys())
+    matriz_dist = pd.DataFrame(index=especies_ordenadas, columns=especies_ordenadas, dtype=float)
+
+    for i, esp1 in enumerate(especies_ordenadas):
+        for j, esp2 in enumerate(especies_ordenadas):
+            if i <= j:
+                d = euclidean(centroides[esp1], centroides[esp2])
+                matriz_dist.loc[esp1, esp2] = d
+                matriz_dist.loc[esp2, esp1] = d
+
+    matriz_dist["Distancia Media"] = matriz_dist.apply(
+        lambda row: row.dropna().drop(labels=row.name).mean(), axis=1
+    )
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(matriz_dist, annot=True, fmt=".2f", cmap="viridis", square=True)
+    plt.title("Distancia euclidiana entre especies (solo imágenes sanas)")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    plt.show()
+
+
+def features(df):
+    def extract_features(path):
+        try:
+            img = cv.imread(path)
+            img = img[:128, :128]
+            features = hog(img, pixels_per_cell=(8, 8), cells_per_block=(2, 2), feature_vector=True, channel_axis=-1)
+            return features
+        except Exception as e:
+            print(f"Error con {path}: {e}")
+            return None
+
+    hog_features = []
+    valid_indices = []
+
+    for idx, row in tqdm(df.iterrows(), total=len(df)):
+        feat = extract_features(row['File'])
+        if feat is not None:
+            hog_features.append(feat)
+            valid_indices.append(idx)
+
+    df_features = df.loc[valid_indices].reset_index(drop=True)
+    hog_features = np.array(hog_features)
+
+    pca = PCA(n_components=2)
+    hog_pca = pca.fit_transform(hog_features)
+
+    df_features["pca1"] = hog_pca[:, 0]
+    df_features["pca2"] = hog_pca[:, 1]
+
+    return df_features
 
 
 def build_dataset(base_dir):
@@ -42,6 +147,63 @@ def build_dataset(base_dir):
                     })
 
     return pd.DataFrame(data)
+
+
+def build_color_spa_dataset(base_dir):
+    # Species mapping
+    species_es_map = {
+        'Strawberry': 'Fresa',
+        'Grape': 'Uva',
+        'Potato': 'Papa',
+        'Blueberry': 'Arándano',
+        'Corn_(maize)': 'Maíz',
+        'Tomato': 'Tomate',
+        'Peach': 'Durazno',
+        'Pepper,_bell': 'Pimiento',
+        'Orange': 'Naranja',
+        'Cherry_(including_sour)': 'Cereza',
+        'Apple': 'Manzana',
+        'Raspberry': 'Frambuesa',
+        'Squash': 'Calabaza',
+        'Soybean': 'Soja'
+    }
+
+    # Disease mapping
+    disease_es_map = {
+        'Black_rot': 'Podredumbre negra',
+        'Early_blight': 'Tizón temprano',
+        'Target_Spot': 'Mancha diana',
+        'Late_blight': 'Tizón tardío',
+        'Tomato_mosaic_virus': 'Virus del mosaico',
+        'Haunglongbing_(Citrus_greening)': 'Huanglongbing (HLB) / enverdecimiento de los cítricos',
+        'Leaf_Mold': 'Moho de la hoja',
+        'Leaf_blight_(Isariopsis_Leaf_Spot)': 'Tizón de la hoja (mancha foliar por Isariopsis)',
+        'Powdery_mildew': 'Oídio (cenicilla o polvillo blanco)',
+        'Cedar_apple_rust': 'Roya del manzano y cedro',
+        'Bacterial_spot': 'Mancha bacteriana',
+        'Common_rust_': 'Roya común',
+        'Esca_(Black_Measles)': 'Esca (manchas negras)',
+        'Tomato_Yellow_Leaf_Curl_Virus': 'Virus del rizado amarillo de la hoja',
+        'Apple_scab': 'Sarna',
+        'Northern_Leaf_Blight': 'Tizón foliar del norte',
+        'Spider_mites Two-spotted_spider_mite': 'Ácaros araña de dos manchas',
+        'Septoria_leaf_spot': 'Mancha foliar por septoria',
+        'Cercospora_leaf_spot Gray_leaf_spot': 'Mancha foliar por cercospora / mancha foliar gris',
+        'Leaf_scorch': 'Quemadura de la hoja'
+    }
+
+    df = build_dataset('../data/plantvillage/plantvillage dataset')
+
+    # Add Spanish species names
+    df['Especie'] = df['Species'].map(species_es_map)
+
+    # Add Spanish disease names, use 'Sano' for healthy samples
+    df['Enfermedad'] = df.apply(
+        lambda row: 'Sano' if row['Healthy'] else disease_es_map.get(row['Disease'], row['Disease']),
+        axis=1
+    )
+
+    return df[df['Format'] == 'color']
 
 
 def download_plantvillage_dataset(download_path='data/plantvillage'):
