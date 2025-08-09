@@ -11,22 +11,50 @@ import matplotlib.gridspec as gridspec
 from scipy.spatial.distance import euclidean
 from skimage.feature import hog
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from tqdm import tqdm
 import seaborn as sns
 
 
-def plt_distance_species_with_same_disease(df):
-    df_features = features(df)
+def features_extract(df):
+    def extract_features(path):
+        try:
+            img = cv.imread(path)
+            img = img[:128, :128]
+            features = hog(img, pixels_per_cell=(8, 8), cells_per_block=(2, 2), feature_vector=True, channel_axis=-1)
+            return features
+        except Exception as e:
+            print(f"Error con {path}: {e}")
+            return None
+
+    hog_features = []
+    valid_indices = []
+
+    for idx, row in tqdm(df.iterrows(), total=len(df)):
+        feat = extract_features(row['File'])
+        if feat is not None:
+            hog_features.append(feat)
+            valid_indices.append(idx)
+
+    df_features = df.loc[valid_indices].reset_index(drop=True)
+    hog_features = np.array(hog_features)
+
+    return df_features, hog_features
+
+
+def plt_distance_species_with_same_disease(features, hog):
+    features["x"] = hog[:, 0]
+    features["y"] = hog[:, 1]
 
     distancias_por_enfermedad = {}
 
-    for enfermedad in df_features["Enfermedad"].unique():
-        sub_df = df_features[df_features["Enfermedad"] == enfermedad]
+    for enfermedad in features["Enfermedad"].unique():
+        sub_df = features[features["Enfermedad"] == enfermedad]
         especies = sub_df["Especie"].unique()
 
         centroides = {}
         for especie in especies:
-            puntos = sub_df[sub_df["Especie"] == especie][["pca1", "pca2"]].values
+            puntos = sub_df[sub_df["Especie"] == especie][["x", "y"]].values
             centroides[especie] = puntos.mean(axis=0)
 
         distancias = []
@@ -39,25 +67,63 @@ def plt_distance_species_with_same_disease(df):
             distancias_por_enfermedad[enfermedad] = np.mean(distancias)
 
     for enfermedad in sorted(distancias_por_enfermedad, key=distancias_por_enfermedad.get):
-        subset = df_features[df_features["Enfermedad"] == enfermedad]
+        subset = features[features["Enfermedad"] == enfermedad]
         plt.figure(figsize=(6, 5))
-        sns.scatterplot(data=subset, x="pca1", y="pca2", hue="Especie", s=80)
+        sns.scatterplot(data=subset, x="x", y="y", hue="Especie", s=80)
         plt.title(f"{enfermedad} (distancia media entre especies: {distancias_por_enfermedad[enfermedad]:.2f})")
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.show()
 
 
-def plt_distance_healthy_species(df):
-    df_sano = df[df["Enfermedad"].str.lower() == "sano"].copy()
+def plt_distance_species_with_same_disease_pca(df):
+    df_features, hog_features = features_extract(df)
 
-    df_sano_valid = features(df_sano)
+    pca = PCA(n_components=2)
+    hog_pca = pca.fit_transform(hog_features)
+
+    plt_distance_species_with_same_disease(df_features, hog_pca)
+
+
+def plt_distance_species_with_same_disease_tsne(df):
+    df_features, hog_features = features_extract(df)
+
+    tsne = TSNE(n_components=2, random_state=42, perplexity=30, max_iter=1000)
+    hog_tsne = tsne.fit_transform(hog_features)
+
+    plt_distance_species_with_same_disease(df_features, hog_tsne)
+
+
+def plt_distance_healthy_species_pca(df):
+    df_sano = df[df["Enfermedad"].str.lower() == "sano"].copy()
+    df_features, hog_features = features_extract(df_sano)
+
+    pca = PCA(n_components=2)
+    hog_pca = pca.fit_transform(hog_features)
+
+    plt_distance_healthy_species(df_features, hog_pca)
+
+
+def plt_distance_healthy_species_tsne(df):
+    df_sano = df[df["Enfermedad"].str.lower() == "sano"].copy()
+    df_features, hog_features = features_extract(df_sano)
+
+    tsne = TSNE(n_components=2, random_state=42, perplexity=30, max_iter=1000)
+    hog_tsne = tsne.fit_transform(hog_features)
+
+    plt_distance_healthy_species(df_features, hog_tsne)
+
+
+def plt_distance_healthy_species(df_sano_valid, hog):
+
+    df_sano_valid["x"] = hog[:, 0]
+    df_sano_valid["y"] = hog[:, 1]
 
     especies_sanas = df_sano_valid["Especie"].unique()
     centroides = {}
 
     for especie in especies_sanas:
-        puntos = df_sano_valid[df_sano_valid["Especie"] == especie][["pca1", "pca2"]].values
+        puntos = df_sano_valid[df_sano_valid["Especie"] == especie][["x", "y"]].values
         if len(puntos) > 0:
             centroides[especie] = puntos.mean(axis=0)
 
@@ -81,39 +147,6 @@ def plt_distance_healthy_species(df):
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.show()
-
-
-def features(df):
-    def extract_features(path):
-        try:
-            img = cv.imread(path)
-            img = img[:128, :128]
-            features = hog(img, pixels_per_cell=(8, 8), cells_per_block=(2, 2), feature_vector=True, channel_axis=-1)
-            return features
-        except Exception as e:
-            print(f"Error con {path}: {e}")
-            return None
-
-    hog_features = []
-    valid_indices = []
-
-    for idx, row in tqdm(df.iterrows(), total=len(df)):
-        feat = extract_features(row['File'])
-        if feat is not None:
-            hog_features.append(feat)
-            valid_indices.append(idx)
-
-    df_features = df.loc[valid_indices].reset_index(drop=True)
-    hog_features = np.array(hog_features)
-
-    pca = PCA(n_components=2)
-    hog_pca = pca.fit_transform(hog_features)
-
-    df_features["pca1"] = hog_pca[:, 0]
-    df_features["pca2"] = hog_pca[:, 1]
-
-    return df_features
-
 
 def build_dataset(base_dir):
     subfolders = ['color', 'grayscale', 'segmented']
