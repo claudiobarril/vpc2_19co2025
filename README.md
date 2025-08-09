@@ -10,6 +10,10 @@
 
 * 11/08 (7ta Clase)  - Entrega Final
 
+## Presentación
+
+[Link](https://docs.google.com/presentation/d/17w73SuldkLfFn8Y4MhdrUNgf-jo2GDkRfNBzaEHOqlc/edit?usp=sharing)
+
 ## Integrantes
 
 - **Iñaki Larrumbide** (a1703)  
