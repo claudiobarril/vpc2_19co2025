@@ -8,7 +8,7 @@ import pandas as pd
 
 from matplotlib.colors import hsv_to_rgb
 import matplotlib.gridspec as gridspec
-from scipy.spatial.distance import euclidean
+from scipy.spatial.distance import euclidean, cosine
 from skimage.feature import hog
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -60,7 +60,7 @@ def plt_distance_species_with_same_disease(features, hog):
         distancias = []
         for i, esp1 in enumerate(especies):
             for esp2 in especies[i+1:]:
-                d = euclidean(centroides[esp1], centroides[esp2])
+                d = cosine(centroides[esp1], centroides[esp2])
                 distancias.append(d)
 
         if distancias:
@@ -133,7 +133,7 @@ def plt_distance_healthy_species(df_sano_valid, hog):
     for i, esp1 in enumerate(especies_ordenadas):
         for j, esp2 in enumerate(especies_ordenadas):
             if i <= j:
-                d = euclidean(centroides[esp1], centroides[esp2])
+                d = cosine(centroides[esp1], centroides[esp2])
                 matriz_dist.loc[esp1, esp2] = d
                 matriz_dist.loc[esp2, esp1] = d
 
@@ -143,7 +143,7 @@ def plt_distance_healthy_species(df_sano_valid, hog):
 
     plt.figure(figsize=(10, 8))
     sns.heatmap(matriz_dist, annot=True, fmt=".2f", cmap="viridis", square=True)
-    plt.title("Distancia euclidiana entre especies (solo imágenes sanas)")
+    plt.title("Distancia coseno entre especies (solo imágenes sanas)")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.show()
