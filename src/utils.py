@@ -8,12 +8,15 @@ import pandas as pd
 
 from matplotlib.colors import hsv_to_rgb
 import matplotlib.gridspec as gridspec
-from scipy.spatial.distance import euclidean, cosine
+from scipy.spatial.distance import cosine
 from skimage.feature import hog
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 import seaborn as sns
+import kagglehub
+import maps
 
 
 def features_extract(df):
@@ -148,6 +151,7 @@ def plt_distance_healthy_species(df_sano_valid, hog):
     plt.tight_layout()
     plt.show()
 
+
 def build_dataset(base_dir):
     subfolders = ['color', 'grayscale', 'segmented']
     data = []
@@ -183,56 +187,15 @@ def build_dataset(base_dir):
 
 
 def build_color_spa_dataset(base_dir):
-    # Species mapping
-    species_es_map = {
-        'Strawberry': 'Fresa',
-        'Grape': 'Uva',
-        'Potato': 'Papa',
-        'Blueberry': 'Arándano',
-        'Corn_(maize)': 'Maíz',
-        'Tomato': 'Tomate',
-        'Peach': 'Durazno',
-        'Pepper,_bell': 'Pimiento',
-        'Orange': 'Naranja',
-        'Cherry_(including_sour)': 'Cereza',
-        'Apple': 'Manzana',
-        'Raspberry': 'Frambuesa',
-        'Squash': 'Calabaza',
-        'Soybean': 'Soja'
-    }
-
-    # Disease mapping
-    disease_es_map = {
-        'Black_rot': 'Podredumbre negra',
-        'Early_blight': 'Tizón temprano',
-        'Target_Spot': 'Mancha diana',
-        'Late_blight': 'Tizón tardío',
-        'Tomato_mosaic_virus': 'Virus del mosaico',
-        'Haunglongbing_(Citrus_greening)': 'Huanglongbing (HLB) / enverdecimiento de los cítricos',
-        'Leaf_Mold': 'Moho de la hoja',
-        'Leaf_blight_(Isariopsis_Leaf_Spot)': 'Tizón de la hoja (mancha foliar por Isariopsis)',
-        'Powdery_mildew': 'Oídio (cenicilla o polvillo blanco)',
-        'Cedar_apple_rust': 'Roya del manzano y cedro',
-        'Bacterial_spot': 'Mancha bacteriana',
-        'Common_rust_': 'Roya común',
-        'Esca_(Black_Measles)': 'Esca (manchas negras)',
-        'Tomato_Yellow_Leaf_Curl_Virus': 'Virus del rizado amarillo de la hoja',
-        'Apple_scab': 'Sarna',
-        'Northern_Leaf_Blight': 'Tizón foliar del norte',
-        'Spider_mites Two-spotted_spider_mite': 'Ácaros araña de dos manchas',
-        'Septoria_leaf_spot': 'Mancha foliar por septoria',
-        'Cercospora_leaf_spot Gray_leaf_spot': 'Mancha foliar por cercospora / mancha foliar gris',
-        'Leaf_scorch': 'Quemadura de la hoja'
-    }
 
     df = build_dataset(base_dir)
 
     # Add Spanish species names
-    df['Especie'] = df['Species'].map(species_es_map)
+    df['Especie'] = df['Species'].map(maps.species_es_map)
 
     # Add Spanish disease names, use 'Sano' for healthy samples
     df['Enfermedad'] = df.apply(
-        lambda row: 'Sano' if row['Healthy'] else disease_es_map.get(row['Disease'], row['Disease']),
+        lambda row: 'Sano' if row['Healthy'] else maps.disease_es_map.get(row['Disease'], row['Disease']),
         axis=1
     )
 
@@ -251,6 +214,18 @@ def download_plantvillage_dataset(download_path='data/plantvillage'):
         unzip=True
     )
     print(f'Dataset downloaded and extracted to {download_path}')
+
+
+def download_plantvillage_dataset_in_collab():
+    kagglehub.dataset_download(
+        "abdallahalidev/plantvillage-dataset"
+    )
+
+    print("Data source import complete.")
+
+    for dirname, _, filenames in os.walk("/kaggle/input"):
+        for filename in filenames:
+            print(os.path.join(dirname, filename))
 
 
 def get_files_by_disease(type_dir, prefix='Tomato___'):
@@ -309,6 +284,57 @@ def plot_disease_rgb_histogram(example_files, hist_r, hist_g, hist_b, healthy_hi
     plt.ylabel('Average Frequency')
     plt.ylim(0, 800)
     plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_confusion_matrix_blue(
+        y_true, y_pred, class_names, normalize=False, title="Matriz de Confusión"
+):
+    labels = list(range(len(class_names)))
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+
+    cm_display = cm.astype(float)
+    if normalize:
+        row_sums = cm_display.sum(axis=1, keepdims=True).clip(min=1.0)
+        cm_display = cm_display / row_sums
+
+    fig, ax = plt.subplots(figsize=(11, 11))
+
+    im = ax.imshow(cm_display, interpolation="nearest", cmap=plt.cm.Blues)
+
+    ax.set_title(title)
+    ax.set_xlabel("Predicción")
+    ax.set_ylabel("Etiqueta real")
+
+    ax.set_xticks(np.arange(len(class_names)))
+    ax.set_yticks(np.arange(len(class_names)))
+    ax.set_xticklabels(class_names, rotation=90)
+    ax.set_yticklabels(class_names)
+
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    fmt = ".2f" if normalize else "d"
+    thresh = cm_display.max() / 2.0 if cm_display.size else 0.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            val = cm_display[i, j]
+            if normalize:
+                text = f"{val:{fmt}}"
+            else:
+                if cm[i, j] == 0:
+                    continue
+                text = f"{cm[i, j]:{fmt}}"
+            ax.text(
+                j,
+                i,
+                text,
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white" if val > thresh else "black",
+            )
+
     plt.tight_layout()
     plt.show()
 
