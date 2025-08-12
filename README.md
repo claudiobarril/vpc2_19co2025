@@ -43,3 +43,30 @@ La amplia distribución de teléfonos inteligentes entre los agricultores de tod
 Una posible aplicación es el desarrollo de diagnósticos móviles de enfermedades mediante el aprendizaje automático y el crowdsourcing.\
 El dataset cuenta con la publicación de más de 50.000 imágenes curadas por expertos sobre hojas sanas e infectadas de plantas de cultivo a través de la plataforma en línea existente PlantVillage. \
 Se han descrito tanto los datos como la plataforma. Estos datos son el comienzo de un esfuerzo de crowdsourcing en curso para permitir que los enfoques de visión por ordenador ayuden a resolver el problema de las pérdidas de rendimiento en las plantas de cultivo debido a enfermedades infecciosas.
+
+## Entregas
+
+### Entrega 1 - EDA
+
+Consta de un análisis exploratorio de datos (EDA) que incluye:
+- Análisis de la distribución de clases y especies disponibles.
+- Visualización de imágenes representativas de cada clase.
+- Análisis de la calidad de las imágenes.
+- Análisis de similitud de enfermedades comunes entre especies.
+
+### Entrega 2 - Baseline
+
+Consta de un modelo baseline que incluye:
+- Entrenamiento de un modelo de clasificación de imágenes utilizando transfer learning con un modelo preentrenado: ResNet18.
+- Evaluación del modelo en un conjunto de validación.
+- Análisis de las métricas de rendimiento del modelo.
+- Conclusiones parciales sobre el rendimiento del modelo y posibles mejoras.
+
+### Entrega 3 - Entrega Final
+
+Consta de un modelo final que incluye:
+- Entrenamiento del mismo modelo baseline, pero con balanceo de clases como parte del cálculo en la función de pérdida.
+- Evaluación del modelo en un conjunto de validación.
+- Análisis de las métricas de rendimiento del modelo.
+- Iteración del modelo a través de técnicas de data augmentation y fine-tuning.
+- Conclusiones finales sobre el rendimiento del modelo y posibles pasos a seguir.
