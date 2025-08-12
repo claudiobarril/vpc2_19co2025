@@ -64,7 +64,8 @@ Consta de un modelo baseline que incluye:
 
 ### Entrega 3 - Entrega Final
 
-Consta de un modelo final que incluye:
+Consta de:
+- Análisis exhaustivo de los resultados del baseline, con foco en las clases peores clasificadas y las confusiones más típicas del modelo, realizando un análisis visual de las posibles causas.
 - Entrenamiento del mismo modelo baseline, pero con balanceo de clases como parte del cálculo en la función de pérdida.
 - Evaluación del modelo en un conjunto de validación.
 - Análisis de las métricas de rendimiento del modelo.
